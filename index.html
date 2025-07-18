@@ -2,73 +2,68 @@
 <html lang="es">
 <head>
   <meta charset="UTF-8" />
-  <title>Taquería El Servidor Público</title>
+  <title>Taquería - Carrito de Venta</title>
+  <script src="https://cdn.sheetjs.com/xlsx-latest/package/dist/xlsx.full.min.js"></script>
 </head>
 <body>
+  <h1>Carrito de Venta</h1>
 
-  <h1>Ventas Taquería</h1>
-
-  <label for="producto">Producto:</label>
+  <label>Producto:</label>
   <select id="producto">
-    <option value="picada">Taco de Picada - $14</option>
-    <option value="maciza">Taco de Maciza - $15</option>
-    <option value="lengua">Taco de Lengua - $17</option>
-    <option value="lonchePicada">Lonche de Picada - $40</option>
-    <option value="loncheMaciza">Lonche de Maciza - $45</option>
-    <option value="loncheLengua">Lonche de Lengua - $50</option>
+    <option value="picada">Taco Picada - $14</option>
+    <option value="maciza">Taco Maciza - $15</option>
+    <option value="lengua">Taco Lengua - $17</option>
+    <option value="lonchePicada">Lonche Picada - $40</option>
+    <option value="loncheMaciza">Lonche Maciza - $45</option>
+    <option value="loncheLengua">Lonche Lengua - $50</option>
     <option value="refrescoChico">Refresco Chico - $15</option>
     <option value="refrescoGrande">Refresco Grande - $18</option>
-    <option value="agua">Agua de Sabores - $15</option>
+    <option value="agua">Agua - $15</option>
   </select>
-  <br/>
 
-  <label for="cantidad">Cantidad:</label>
+  <label>Cantidad:</label>
   <input type="number" id="cantidad" min="1" />
-  <br/>
 
-  <label for="pago">Pago:</label>
-  <input type="number" id="pago" min="0" step="0.01" />
-  <br/>
+  <button onclick="agregarAlCarrito()">Agregar al carrito</button>
 
-  <label for="fecha">Fecha:</label>
+  <h2>Carrito actual</h2>
+  <table border="1">
+    <thead>
+      <tr>
+        <th>Producto</th>
+        <th>Cantidad</th>
+        <th>Precio</th>
+        <th>Total</th>
+      </tr>
+    </thead>
+    <tbody id="tabla-carrito"></tbody>
+  </table>
+
+  <p>Total: $<span id="totalVenta">0.00</span></p>
+
+  <label>Pago:</label>
+  <input type="number" id="pago" min="0" />
+
+  <label>Fecha:</label>
   <input type="date" id="fecha" />
-  <br/>
 
-  <button onclick="agregarVenta()">Agregar Venta</button>
+  <button onclick="finalizarVenta()">Finalizar venta</button>
 
-  <h2>Resultado</h2>
-  <p>Total: $<span id="total">0.00</span></p>
-  <p>Cambio: $<span id="cambio">0.00</span></p>
+  <h2>Ventas registradas</h2>
+  <button onclick="exportarVentas()">📤 Exportar a Excel</button>
 
-  <h2>Historial de Ventas</h2>
   <table border="1">
     <thead>
       <tr>
         <th>Fecha</th>
-        <th>Producto</th>
-        <th>Cantidad</th>
-        <th>Precio Unitario</th>
+        <th>Productos</th>
         <th>Total</th>
       </tr>
     </thead>
     <tbody id="tabla-ventas"></tbody>
   </table>
-  <br/>
-
-  <button onclick="borrarHistorial()">Borrar Historial</button>
-
-  <h2>Exportar ventas</h2>
-  <label for="fechaInicio">Fecha inicio:</label>
-  <input type="date" id="fechaInicio" />
-  <label for="fechaFin">Fecha fin:</label>
-  <input type="date" id="fechaFin" />
-  <button onclick="exportarExcel()">Exportar a Excel</button>
-
-  <script src="https://cdn.sheetjs.com/xlsx-latest/package/dist/xlsx.full.min.js"></script>
 
   <script>
-    let ventas = JSON.parse(localStorage.getItem("ventas")) || [];
-
     const precios = {
       picada: 14,
       maciza: 15,
@@ -81,124 +76,114 @@
       agua: 15
     };
 
-    function actualizarTabla() {
-      const tabla = document.getElementById("tabla-ventas");
-      tabla.innerHTML = "";
+    let carrito = [];
+    let ventas = JSON.parse(localStorage.getItem("ventas")) || [];
 
-      ventas.forEach(venta => {
-        const fila = document.createElement("tr");
-        fila.innerHTML = `
-          <td>${venta.fecha}</td>
-          <td>${venta.producto}</td>
-          <td>${venta.cantidad}</td>
-          <td>$${venta.precio.toFixed(2)}</td>
-          <td>$${venta.total.toFixed(2)}</td>
-        `;
-        tabla.appendChild(fila);
-      });
-    }
-
-    function agregarVenta() {
-      const productoSelect = document.getElementById("producto");
-      const cantidadInput = document.getElementById("cantidad");
-      const pagoInput = document.getElementById("pago");
-      const fechaInput = document.getElementById("fecha");
-
-      const producto = productoSelect.value;
-      const cantidad = parseInt(cantidadInput.value);
-      const pago = parseFloat(pagoInput.value);
-      const fecha = fechaInput.value;
-
+    function agregarAlCarrito() {
+      const producto = document.getElementById("producto").value;
+      const cantidad = parseInt(document.getElementById("cantidad").value);
       if (!cantidad || cantidad <= 0) {
-        alert("Ingresa una cantidad válida.");
-        return;
-      }
-
-      if (!pago || pago <= 0) {
-        alert("Ingresa un pago válido.");
-        return;
-      }
-
-      if (!fecha) {
-        alert("Selecciona una fecha.");
+        alert("Cantidad inválida.");
         return;
       }
 
       const precio = precios[producto];
       const total = precio * cantidad;
 
-      if (pago < total) {
-        alert(`El pago es menor que el total de $${total.toFixed(2)}. Por favor verifica.`);
+      carrito.push({ producto, cantidad, precio, total });
+      actualizarCarrito();
+    }
+
+    function actualizarCarrito() {
+      const tabla = document.getElementById("tabla-carrito");
+      tabla.innerHTML = "";
+      let totalVenta = 0;
+
+      carrito.forEach(item => {
+        const fila = document.createElement("tr");
+        fila.innerHTML = `
+          <td>${item.producto}</td>
+          <td>${item.cantidad}</td>
+          <td>$${item.precio}</td>
+          <td>$${item.total}</td>
+        `;
+        tabla.appendChild(fila);
+        totalVenta += item.total;
+      });
+
+      document.getElementById("totalVenta").textContent = totalVenta.toFixed(2);
+    }
+
+    function finalizarVenta() {
+      const pago = parseFloat(document.getElementById("pago").value);
+      const fecha = document.getElementById("fecha").value;
+      const total = carrito.reduce((sum, item) => sum + item.total, 0);
+
+      if (!fecha) {
+        alert("Selecciona una fecha.");
         return;
       }
 
-      const cambio = pago - total;
+      if (carrito.length === 0) {
+        alert("El carrito está vacío.");
+        return;
+      }
 
-      document.getElementById("total").textContent = total.toFixed(2);
-      document.getElementById("cambio").textContent = cambio.toFixed(2);
+      if (!pago || pago < total) {
+        alert("El pago es insuficiente.");
+        return;
+      }
 
-      const venta = { producto, cantidad, precio, total, fecha };
+      const venta = {
+        fecha,
+        productos: carrito,
+        total
+      };
+
       ventas.push(venta);
       localStorage.setItem("ventas", JSON.stringify(ventas));
 
-      actualizarTabla();
+      carrito = [];
+      document.getElementById("pago").value = "";
+      document.getElementById("fecha").value = "";
+      document.getElementById("totalVenta").textContent = "0.00";
+      document.getElementById("tabla-carrito").innerHTML = "";
 
-      cantidadInput.value = "";
-      pagoInput.value = "";
-      fechaInput.value = "";
+      actualizarVentas();
+      alert(`Venta guardada. Cambio: $${(pago - total).toFixed(2)}`);
     }
 
-    function borrarHistorial() {
-      if (confirm("¿Estás seguro que quieres borrar el historial de ventas?")) {
-        ventas = [];
-        localStorage.removeItem("ventas");
-        actualizarTabla();
+    function actualizarVentas() {
+      const tabla = document.getElementById("tabla-ventas");
+      tabla.innerHTML = "";
 
-        document.getElementById("total").textContent = "0.00";
-        document.getElementById("cambio").textContent = "0.00";
-      }
-    }
-
-    function exportarExcel() {
-      const fechaInicio = document.getElementById("fechaInicio").value;
-      const fechaFin = document.getElementById("fechaFin").value;
-
-      if (!fechaInicio || !fechaFin) {
-        alert("Selecciona ambas fechas para filtrar.");
-        return;
-      }
-
-      if (fechaInicio > fechaFin) {
-        alert("La fecha inicio debe ser menor o igual que la fecha fin.");
-        return;
-      }
-
-      const ventasFiltradas = ventas.filter(venta => {
-        return venta.fecha >= fechaInicio && venta.fecha <= fechaFin;
+      ventas.forEach(v => {
+        const fila = document.createElement("tr");
+        const productosTexto = v.productos.map(p => `${p.cantidad} x ${p.producto}`).join(", ");
+        fila.innerHTML = `
+          <td>${v.fecha}</td>
+          <td>${productosTexto}</td>
+          <td>$${v.total.toFixed(2)}</td>
+        `;
+        tabla.appendChild(fila);
       });
+    }
 
-      if (ventasFiltradas.length === 0) {
-        alert("No hay ventas en el rango seleccionado.");
-        return;
-      }
-
-      const datosExcel = ventasFiltradas.map(v => ({
+    function exportarVentas() {
+      const data = ventas.map(v => ({
         Fecha: v.fecha,
-        Producto: v.producto,
-        Cantidad: v.cantidad,
-        PrecioUnitario: v.precio,
+        Productos: v.productos.map(p => `${p.cantidad}x ${p.producto}`).join(", "),
         Total: v.total
       }));
 
-      const worksheet = XLSX.utils.json_to_sheet(datosExcel);
+      const worksheet = XLSX.utils.json_to_sheet(data);
       const workbook = XLSX.utils.book_new();
       XLSX.utils.book_append_sheet(workbook, worksheet, "Ventas");
 
-      XLSX.writeFile(workbook, "ventas_filtradas.xlsx");
+      XLSX.writeFile(workbook, "ventas_taqueria.xlsx");
     }
 
-    window.onload = actualizarTabla;
+    window.onload = actualizarVentas;
   </script>
-
 </body>
 </html>
